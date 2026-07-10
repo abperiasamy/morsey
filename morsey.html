@@ -1,0 +1,535 @@
+<!--
+  Morsey — CW Morse Trainer
+  Version 1.0
+  Copyright (C) 2026 Anand Babu Periasamy (@abperiasamy on X)
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  https://www.gnu.org/licenses/gpl-3.0.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Morsey — CW Morse Trainer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 20px; }
+  html, body { height: 100%; overflow: hidden; background: #0d0f18; color: #e0e0e0; font-family: 'Courier New', monospace; touch-action: manipulation; }
+  #app { display: flex; flex-direction: column; height: 100dvh; padding: 10px; gap: 8px; }
+
+  #stats { display: flex; justify-content: space-around; align-items: center; background: #1a1f30; border-radius: 12px; padding: 10px 8px; flex-shrink: 0; }
+  .stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .stat-label { font-size: 0.6rem; color: #4a6a9c; text-transform: uppercase; letter-spacing: 1.5px; }
+  .stat-val { font-size: 1.4rem; font-weight: bold; color: #a0b4e0; }
+  #reset-btn { background: none; border: 1.5px solid #3a2a2a; color: #d04545; font-family: inherit; font-size: 0.65rem; font-weight: bold; padding: 6px 10px; border-radius: 8px; cursor: pointer; letter-spacing: 1px; -webkit-tap-highlight-color: transparent; }
+  #reset-btn:hover { background: #1a0a0a; border-color: #6a2a2a; }
+
+  #sets { display: flex; gap: 5px; flex-shrink: 0; }
+  .set-btn { flex: 1; background: #161926; border: 2px solid #222638; color: #555; padding: 0.55rem 2px; border-radius: 12px; cursor: pointer; font-family: inherit; font-size: 0.75rem; font-weight: bold; transition: all .15s; -webkit-tap-highlight-color: transparent; }
+  .set-btn.active { background: #1a2a4a; border-color: #3a5a9c; color: #a0b4e0; }
+
+  #main {
+    flex: 1; min-height: 0;
+    background: #000a00;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+    border: 2px solid #1a2a1a;
+    box-shadow: inset 0 0 30px rgba(0,20,0,0.8), 0 0 8px rgba(0,80,0,0.3);
+    transition: background .2s;
+  }
+  #main::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+    pointer-events: none; z-index: 1;
+  }
+  #main.correct { background: #000f00; box-shadow: inset 0 0 30px rgba(0,40,0,0.8), 0 0 12px rgba(0,180,0,0.4); }
+  #main.wrong   { background: #0f0000; box-shadow: inset 0 0 30px rgba(40,0,0,0.8), 0 0 12px rgba(180,0,0,0.4); }
+
+  #panel { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; z-index: 2; }
+
+  #learn-display { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+  #quiz-group { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+
+  .big-char { font-size: clamp(80px, 14vw, 120px); font-weight: bold; line-height: 1; text-align: center; word-break: break-all; letter-spacing: 4px; cursor: pointer; font-family: 'Courier New', monospace; text-shadow: 0 0 10px currentColor; }
+  .big-char.prompt      { color: #00cc44; }
+  .big-char.correct-ans { color: #00ff66; text-shadow: 0 0 16px #00ff66; }
+  .big-char.wrong-ans   { color: #ff3a1a; text-shadow: 0 0 16px #ff3a1a; }
+
+  #sub-text { font-size: 0.85rem; color: #cc8800; letter-spacing: 2px; text-align: center; text-shadow: 0 0 6px #cc8800; }
+  #feedback { font-size: 1.2rem; font-weight: bold; min-height: 1.4rem; text-align: center; font-family: 'Courier New', monospace; }
+  #feedback.ok  { color: #00ff66; text-shadow: 0 0 10px #00ff66; }
+  #feedback.err { color: #ff3a1a; text-shadow: 0 0 10px #ff3a1a; }
+
+  #hover-tip { position: absolute; top: 12px; right: 16px; background: #001a00; border: 1px solid #005500; border-radius: 6px; padding: 4px 12px; font-size: 0.9rem; color: #00cc44; pointer-events: none; opacity: 0; transition: opacity .15s; white-space: nowrap; width: fit-content; height: fit-content; text-shadow: 0 0 6px #00cc44; z-index: 3; }
+
+  #keyboard { flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
+  .kb-row { display: flex; flex-direction: row; gap: 6px; width: 100%; }
+  .key { flex: 1 1 0; min-width: 0; height: 3.2rem; background: #1c1e30; border: 2px solid #252a3d; border-radius: 12px; color: #9090c0; font-family: inherit; font-size: 1.0rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .1s, border-color .1s, color .1s, transform .08s; -webkit-tap-highlight-color: transparent; user-select: none; }
+  .key:active, .key.pressed { background: #2a3a5c; border-color: #3a5a9c; color: #a0b4e0; transform: scale(0.92); }
+  .key.hint-highlight { background: #2a3a5c; border-color: #5a8adc; color: #d0e4ff; box-shadow: 0 0 10px #3a6adc66; }
+  .key.wide { flex: 1.8 1 0; font-size: 0.85rem; color: #6080a0; }
+
+  #wpm-rows { display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
+  .wpm-row { display: flex; gap: 6px; align-items: center; }
+  .wpm-label { font-size: 0.7rem; color: #555; font-weight: bold; letter-spacing: 1px; flex-shrink: 0; width: 2.8rem; }
+  .wpm-btn { flex: 1; background: #161926; border: 2px solid #222638; color: #555; padding: 0.5rem 0; border-radius: 10px; cursor: pointer; font-family: inherit; font-size: 0.8rem; font-weight: bold; transition: all .15s; -webkit-tap-highlight-color: transparent; }
+  .wpm-btn.selected { background: #1a2a4a; border-color: #3a5a9c; color: #a0b4e0; }
+  .qrs-btn { flex: 1; background: #161926; border: 2px solid #222638; color: #555; padding: 0.5rem 0; border-radius: 10px; cursor: pointer; font-family: inherit; font-size: 0.8rem; font-weight: bold; transition: all .15s; -webkit-tap-highlight-color: transparent; }
+  .qrs-btn.selected { background: #1a2a4a; border-color: #3a5a9c; color: #a0b4e0; }
+  .qrs-btn.disabled { opacity: 0.3; pointer-events: none; }
+
+  #ref-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; }
+  #ref-overlay.open { display: flex; }
+  #ref-popup { background: #161926; border: 2px solid #3a5a9c; border-radius: 16px; padding: 16px; max-width: 680px; width: 95vw; max-height: 88vh; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+  #ref-header { display: flex; align-items: center; justify-content: space-between; }
+  #ref-header h2 { font-size: 1.0rem; color: #a0b4e0; letter-spacing: 2px; }
+  #ref-close { background: #1e2f4a; border: 1.5px solid #3a5a9c; color: #a0b4e0; font-family: inherit; font-size: 0.85rem; font-weight: bold; padding: 6px 16px; border-radius: 20px; cursor: pointer; }
+  .ref-section { display: flex; flex-direction: column; gap: 8px; }
+  .ref-title { font-size: 0.65rem; color: #555; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid #222638; padding-bottom: 4px; }
+  .ref-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 6px; }
+  .ref-item { background: #1c1e30; border: 1.5px solid #252a3d; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; }
+  .ref-char { font-size: 1.2rem; font-weight: bold; color: #c8d8ff; }
+  .ref-code { font-size: 0.8rem; color: #6080b0; letter-spacing: 3px; }
+
+  #unlock-msg { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); background: #1a2a4a; border: 2px solid #3a5a9c; color: #a0b4e0; padding: 8px 20px; border-radius: 20px; font-size: 0.85rem; opacity: 0; transition: opacity .4s; pointer-events: none; white-space: nowrap; z-index: 100; }
+  #unlock-msg.show { opacity: 1; }
+
+  @media (min-width: 481px) and (max-width: 768px) {
+    html { font-size: 17px; }
+    .set-btn { font-size: 0.72rem; padding: 0.5rem 2px; }
+    .key { height: 3.0rem; }
+    #app { padding: 8px; gap: 6px; }
+  }
+  @media (max-width: 480px) {
+    html { font-size: 15px; }
+    #app { padding: 6px; gap: 4px; }
+    #sets { flex-wrap: wrap; gap: 4px; }
+    .set-btn { flex: 1 1 calc(25% - 4px); min-width: 0; padding: 0.45rem 2px; font-size: 0.68rem; }
+    .stat-val { font-size: 1.1rem; }
+    .stat-label { font-size: 0.52rem; }
+    #stats { padding: 7px 4px; }
+    .key { height: 2.6rem; font-size: 0.85rem; border-radius: 8px; }
+    .key.wide { font-size: 0.7rem; }
+    .wpm-btn, .qrs-btn { padding: 0.45rem 0; font-size: 0.72rem; }
+    .wpm-label { font-size: 0.68rem; }
+    #wpm-rows { gap: 4px; }
+    .wpm-row { gap: 4px; flex-wrap: wrap; }
+  }
+  @media (max-width: 360px) {
+    html { font-size: 13px; }
+    .set-btn { flex: 1 1 calc(25% - 3px); font-size: 0.62rem; }
+    .key { height: 2.4rem; font-size: 0.8rem; }
+    #keyboard { gap: 4px; }
+    .kb-row { gap: 4px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="ref-overlay">
+  <div id="ref-popup">
+    <div id="ref-header"><h2>CW REFERENCE</h2><button id="ref-close">✕ Close</button></div>
+    <div class="ref-section"><div class="ref-title">Letters</div><div class="ref-grid" id="ref-letters"></div></div>
+    <div class="ref-section"><div class="ref-title">Numbers</div><div class="ref-grid" id="ref-numbers"></div></div>
+    <div class="ref-section"><div class="ref-title">Symbols</div><div class="ref-grid" id="ref-symbols"></div></div>
+  </div>
+</div>
+<div id="unlock-msg"></div>
+
+<div id="app">
+  <div id="stats">
+    <div class="stat"><span class="stat-label">Streak</span><span class="stat-val" id="s-streak">0</span></div>
+    <div class="stat"><span class="stat-label">Accuracy</span><span class="stat-val" id="s-acc">—</span></div>
+    <div class="stat"><span class="stat-label">Correct</span><span class="stat-val" id="s-correct">0</span></div>
+    <div class="stat"><span class="stat-label">Pool</span><span class="stat-val" id="s-chars">—</span></div>
+    <button id="reset-btn" onclick="resetProgress()">↺ Reset</button>
+  </div>
+
+  <div id="sets">
+    <button class="set-btn active" data-set="explore"   onclick="switchSet('explore')">Learn</button>
+    <button class="set-btn"        data-set="letters"   onclick="switchSet('letters')">ABC</button>
+    <button class="set-btn"        data-set="numbers"   onclick="switchSet('numbers')">123</button>
+    <button class="set-btn"        data-set="symbols"   onclick="switchSet('symbols')">Sym</button>
+    <button class="set-btn"        data-set="mixed"     onclick="switchSet('mixed')">Mix</button>
+    <button class="set-btn"        data-set="callsigns" onclick="switchSet('callsigns')">Calls</button>
+    <button class="set-btn"        data-set="common"    onclick="switchSet('common')">QCodes</button>
+    <button class="set-btn"        data-set="sentence"  onclick="switchSet('sentence')">QSO</button>
+  </div>
+
+  <div id="main">
+    <div id="panel">
+      <div id="learn-display">
+        <div id="learn-msg"></div>
+      </div>
+      <div id="quiz-group" style="display:none">
+        <div id="big-char" class="big-char prompt" onclick="handleHint()">?</div>
+        <div id="sub-text"></div>
+        <div id="feedback"></div>
+      </div>
+    </div>
+    <div id="hover-tip"></div>
+  </div>
+
+  <div id="keyboard">
+    <div class="kb-row">
+      <button class="key" data-char="Q" onclick="handleKey('Q')">Q</button>
+      <button class="key" data-char="W" onclick="handleKey('W')">W</button>
+      <button class="key" data-char="E" onclick="handleKey('E')">E</button>
+      <button class="key" data-char="R" onclick="handleKey('R')">R</button>
+      <button class="key" data-char="T" onclick="handleKey('T')">T</button>
+      <button class="key" data-char="Y" onclick="handleKey('Y')">Y</button>
+      <button class="key" data-char="U" onclick="handleKey('U')">U</button>
+      <button class="key" data-char="I" onclick="handleKey('I')">I</button>
+      <button class="key" data-char="O" onclick="handleKey('O')">O</button>
+      <button class="key" data-char="P" onclick="handleKey('P')">P</button>
+      <button class="key wide" onclick="replayItem()">↺ Replay</button>
+      <button class="key wide" onclick="toggleRef()">⊞ Ref</button>
+    </div>
+    <div class="kb-row">
+      <button class="key" data-char="A" onclick="handleKey('A')">A</button>
+      <button class="key" data-char="S" onclick="handleKey('S')">S</button>
+      <button class="key" data-char="D" onclick="handleKey('D')">D</button>
+      <button class="key" data-char="F" onclick="handleKey('F')">F</button>
+      <button class="key" data-char="G" onclick="handleKey('G')">G</button>
+      <button class="key" data-char="H" onclick="handleKey('H')">H</button>
+      <button class="key" data-char="J" onclick="handleKey('J')">J</button>
+      <button class="key" data-char="K" onclick="handleKey('K')">K</button>
+      <button class="key" data-char="L" onclick="handleKey('L')">L</button>
+      <button class="key wide" onclick="handleHint()">~ Hint</button>
+    </div>
+    <div class="kb-row">
+      <button class="key" data-char="Z" onclick="handleKey('Z')">Z</button>
+      <button class="key" data-char="X" onclick="handleKey('X')">X</button>
+      <button class="key" data-char="C" onclick="handleKey('C')">C</button>
+      <button class="key" data-char="V" onclick="handleKey('V')">V</button>
+      <button class="key" data-char="B" onclick="handleKey('B')">B</button>
+      <button class="key" data-char="N" onclick="handleKey('N')">N</button>
+      <button class="key" data-char="M" onclick="handleKey('M')">M</button>
+      <button class="key wide" onclick="handleKey(' ')">⎵ Space</button>
+    </div>
+    <div class="kb-row">
+      <button class="key" data-char="1" onclick="handleKey('1')">1</button>
+      <button class="key" data-char="2" onclick="handleKey('2')">2</button>
+      <button class="key" data-char="3" onclick="handleKey('3')">3</button>
+      <button class="key" data-char="4" onclick="handleKey('4')">4</button>
+      <button class="key" data-char="5" onclick="handleKey('5')">5</button>
+      <button class="key" data-char="6" onclick="handleKey('6')">6</button>
+      <button class="key" data-char="7" onclick="handleKey('7')">7</button>
+      <button class="key" data-char="8" onclick="handleKey('8')">8</button>
+      <button class="key" data-char="9" onclick="handleKey('9')">9</button>
+      <button class="key" data-char="0" onclick="handleKey('0')">0</button>
+    </div>
+    <div class="kb-row">
+      <button class="key" data-char="." onclick="handleKey('.')">.</button>
+      <button class="key" data-char="," onclick="handleKey(this.dataset.char)">,</button>
+      <button class="key" data-char="?" onclick="handleKey('?')">?</button>
+      <button class="key" data-char="/" onclick="handleKey('/')">/</button>
+      <button class="key" data-char="=" onclick="handleKey('=')">=</button>
+      <button class="key" data-char="+" onclick="handleKey('+')">+</button>
+      <button class="key" data-char="-" onclick="handleKey('-')">-</button>
+      <button class="key" data-char="(" onclick="handleKey('(')">(</button>
+      <button class="key" data-char=")" onclick="handleKey(')')">)</button>
+      <button class="key" data-char="@" onclick="handleKey('@')">@</button>
+      <button class="key" data-char="!" onclick="handleKey('!')">!</button>
+      <button class="key" data-char=":" onclick="handleKey(':')">:</button>
+      <button class="key" data-char="'" onclick="handleKey(&quot;'&quot;)">'</button>
+    </div>
+  </div>
+
+  <div id="wpm-rows">
+    <div class="wpm-row">
+      <span class="wpm-label">WPM</span>
+      <button class="wpm-btn"          onclick="setWpm(5)">5</button>
+      <button class="wpm-btn"          onclick="setWpm(10)">10</button>
+      <button class="wpm-btn"          onclick="setWpm(13)">13</button>
+      <button class="wpm-btn"          onclick="setWpm(15)">15</button>
+      <button class="wpm-btn selected" onclick="setWpm(20)">20</button>
+      <button class="wpm-btn"          onclick="setWpm(25)">25</button>
+      <button class="wpm-btn"          onclick="setWpm(30)">30</button>
+      <button class="wpm-btn"          onclick="setWpm(35)">35</button>
+      <span style="color:#333;font-size:0.8rem;flex-shrink:0;padding:0 4px;">|</span>
+      <span class="wpm-label" style="width:auto;">QRS</span>
+      <button class="qrs-btn"          onclick="setFarnsworth(0)">Off</button>
+      <button class="qrs-btn"          onclick="setFarnsworth(10)">10</button>
+      <button class="qrs-btn selected" onclick="setFarnsworth(12)">12</button>
+      <button class="qrs-btn"          onclick="setFarnsworth(15)">15</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const MORSE = {
+  A:'.-',B:'-...',C:'-.-.',D:'-..',E:'.',F:'..-.',G:'--.',H:'....',I:'..',J:'.---',
+  K:'-.-',L:'.-..',M:'--',N:'-.',O:'---',P:'.--.',Q:'--.-',R:'.-.',S:'...',T:'-',
+  U:'..-',V:'...-',W:'.--',X:'-..-',Y:'-.--',Z:'--..',
+  '0':'-----','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....',
+  '6':'-....','7':'--...','8':'---..','9':'----.',
+  '.':'.-.-.-',',':'--..--','?':'..--..','/':'-..-.','=':'-...-',
+  '+':'.-.-.','×':'-..-','-':'-....-','(':'-.--.',')':'-.--.-',
+  '@':'.--.-.','!':'-.-.--',':':'---...',';':'-.-.-.','\'':'.----.'
+};
+const KOCH     = ['K','M','R','S','U','A','P','T','L','O','W','I','N','J','E','F','X','B','D','C','Y','H','G','Z','Q','V'].filter(c=>MORSE[c]);
+const ALL_NUMS = ['0','1','2','3','4','5','6','7','8','9'];
+const ALL_SYMS = ['.', ',', '?', '/', '=', '+', '-', '(', ')', '@', '!', ':', "'"];
+const WORDS    = ['THE','AND','FOR','ARE','BUT','NOT','YOU','ALL','CAN','WAS','ONE','OUR','OUT','DAY','GET','HAS','HOW','NEW','NOW','SEE','TWO','WAY','WHO','CQ','DE','TNX','TU','UR','BK','SK','AR','KN','QSL','QRN','QRM','QRZ','QTH','QSO','RST','ANT','RIG','AGN','WX','FB','CPY','PSE','SRI','CUL','ES','TEST','CALL','OVER','BACK','SEND','COPY','GOOD','BAND','FREQ','NAME'];
+const SENTENCES= ['CQ CQ DE W3AB','TNX FER QSO ES 73','UR RST IS 599','MY NAME IS BOB','QTH IS NEW YORK','ANT IS A DIPOLE','RIG IS AN IC7300','WX IS FINE TODAY','PSE QSL VIA BURO','QSL TU ES CUL','GOOD DX ES 73','PWR IS 100W','FREQ IS 14025 KHZ','HPE CUAGN SRI QRM','TEST DE KD4XZ KD4XZ','QRN IS BAD TODAY','FB ON UR SIGNAL','CPY UR NAME AGN PSE','QRM FROM NEARBY STN','ES TNX FER FB CPY'];
+const SETS     = ['explore','letters','numbers','symbols','mixed','callsigns','common','sentence'];
+const HIGHLIGHT_SETS = new Set(['letters','numbers','symbols','mixed']);
+const PROMPTS  = { letters:'guess the letter', numbers:'guess the number', symbols:'guess the symbol', mixed:'guess the character', callsigns:'guess the callsign', common:'guess the Q-code', sentence:'guess the QSO phrase' };
+
+let ctx=null;
+function getCtx(){ if(!ctx) ctx=new(window.AudioContext||window.webkitAudioContext)(); if(ctx.state==='suspended') ctx.resume(); return ctx; }
+
+const SAVE_KEY='morsey-progress';
+function saveProgress(){ try{ localStorage.setItem(SAVE_KEY,JSON.stringify({wpm,fwpm,totalAttempts,totalCorrect,streak,unlocked,currentSet})); }catch(e){} }
+function loadProgress(){
+  try{
+    const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null'); if(!d) return;
+    wpm=d.wpm||20; fwpm=d.fwpm||12;
+    totalAttempts=d.totalAttempts||0; totalCorrect=d.totalCorrect||0; streak=d.streak||0;
+    unlocked=d.unlocked||{letters:4,numbers:4,mixed:6};
+    currentSet=d.currentSet||'explore';
+  }catch(e){}
+}
+
+let wpm=20, fwpm=12, started=true, currentSet='explore', currentTarget='', typedSoFar='';
+let totalAttempts=0, totalCorrect=0, streak=0;
+let unlocked={letters:4, numbers:4, mixed:6};
+let showHint=false, playing=false, isWordMode=false, isSentenceMode=false, isExploreMode=true;
+let exploreBuffer=[], exploreTimer=null, explorePlayTime=0, audioNodes=[];
+loadProgress();
+
+const $=id=>document.getElementById(id);
+
+function getChars(){ const n=unlocked[currentSet]||0; if(currentSet==='letters') return KOCH.slice(0,n); if(currentSet==='numbers') return ALL_NUMS.slice(0,n); if(currentSet==='mixed') return [...KOCH.slice(0,Math.ceil(n*.6)),...ALL_NUMS.slice(0,Math.floor(n*.4))]; if(currentSet==='symbols') return ALL_SYMS; return null; }
+function sentenceMorse(s){ return s.split('').map(c=>c===' '?'   ':(MORSE[c]||'')).join('  '); }
+function wordMorse(w){ return w.split('').map(c=>MORSE[c]||'').join('  '); }
+function getMorse(){ return isSentenceMode?sentenceMorse(currentTarget):isWordMode?wordMorse(currentTarget):MORSE[currentTarget]; }
+function randCall(){ const pre=['W','K','N','AA','AB','KA','KB','WA','WB'][Math.floor(Math.random()*9)]; const d=String(Math.floor(Math.random()*10)); let s=''; for(let i=0;i<2+Math.floor(Math.random()*2);i++) s+=KOCH[Math.floor(Math.random()*KOCH.length)]; return pre+d+s; }
+function dotLen(){ return 1.2/wpm; }
+function farnsworthExtra(){
+  if(!fwpm||fwpm>=wpm) return 0;
+  const charTime=31*(1.2/wpm), totalTime=60/fwpm, gapTime=totalTime-charTime, normalGapTime=19*(1.2/wpm);
+  return Math.max(0,(gapTime-normalGapTime)/19);
+}
+function playCode(code,done){
+  const ac=getCtx(); playing=true; audioNodes=[];
+  const dot=dotLen(), extra=farnsworthExtra(); let t=ac.currentTime+0.05;
+  for(let i=0;i<code.length;i++){
+    if(code[i]===' '){t+=dot*2+extra*2;continue;}
+    const dur=code[i]==='.'?dot:dot*3;
+    const o=ac.createOscillator(),g=ac.createGain();
+    o.connect(g);g.connect(ac.destination); o.frequency.value=600;
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.4,t+.005);
+    g.gain.setValueAtTime(0.4,t+dur-.005);g.gain.linearRampToValueAtTime(0,t+dur);
+    o.start(t);o.stop(t+dur); audioNodes.push(o);
+    const isLastInChar=(i===code.length-1||code[i+1]===' ');
+    t+=dur+dot+(isLastInChar?extra*3:0);
+  }
+  const tid=setTimeout(()=>{playing=false;if(done)done();},(t-ac.currentTime)*1000);
+  audioNodes._tid=tid;
+}
+function stopAudio(){ audioNodes.forEach(o=>{try{o.stop();}catch(e){}}); if(audioNodes._tid) clearTimeout(audioNodes._tid); audioNodes=[]; playing=false; }
+
+function exploreScheduleChar(ch){
+  const ac=getCtx(); const dot=dotLen(); const code=MORSE[ch]||''; if(!code) return;
+  if(explorePlayTime<ac.currentTime+0.01) explorePlayTime=ac.currentTime+0.01;
+  let t=explorePlayTime;
+  for(let i=0;i<code.length;i++){
+    const dur=code[i]==='.'?dot:dot*3;
+    const o=ac.createOscillator(),g=ac.createGain();
+    o.connect(g);g.connect(ac.destination); o.frequency.value=600;
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.4,t+.005);
+    g.gain.setValueAtTime(0.4,t+dur-.005);g.gain.linearRampToValueAtTime(0,t+dur);
+    o.start(t);o.stop(t+dur); t+=dur+dot;
+  }
+  explorePlayTime=t+dot*2;
+}
+function exploreScheduleSpace(){ const ac=getCtx(); if(explorePlayTime<ac.currentTime+0.01) explorePlayTime=ac.currentTime+0.01; explorePlayTime+=dotLen()*4; }
+
+function renderExplore(){
+  const el=$('learn-display'); el.innerHTML='';
+  const MAX=18; const visible=exploreBuffer.slice(-MAX);
+  if(visible.length===0){
+    const msg=document.createElement('div');
+    msg.textContent='tap any key to hear its CW code';
+    msg.style.cssText='font-size:0.85rem;color:#c07800;letter-spacing:2px;text-align:center;text-shadow:0 0 6px #c07800;font-family:"Courier New",monospace;';
+    el.appendChild(msg); return;
+  }
+  const charRow=document.createElement('div');
+  charRow.style.cssText='display:flex;flex-direction:row;align-items:center;justify-content:center;gap:8px;width:100%;flex-wrap:wrap;';
+  const codeRow=document.createElement('div');
+  codeRow.style.cssText='display:flex;flex-direction:row;align-items:center;justify-content:center;gap:8px;width:100%;flex-wrap:wrap;margin-top:8px;';
+  visible.forEach(c=>{
+    if(c===' '){
+      const s1=document.createElement('div'); s1.style.cssText='width:2px;height:1.6rem;background:#005500;border-radius:2px;box-shadow:0 0 4px #005500;'; charRow.appendChild(s1);
+      const s2=document.createElement('div'); s2.style.cssText='width:2px;height:1rem;background:#664400;border-radius:2px;box-shadow:0 0 4px #664400;'; codeRow.appendChild(s2);
+      return;
+    }
+    const w=Math.max((MORSE[c]||'').length*11+4,22)+'px';
+    const ce=document.createElement('div'); ce.textContent=c; ce.style.cssText=`font-size:1.6rem;font-weight:bold;color:#00cc44;line-height:1;text-align:center;min-width:${w};text-shadow:0 0 10px #00cc44;font-family:"Courier New",monospace;`;
+    const me=document.createElement('div'); me.textContent=MORSE[c]||''; me.style.cssText=`font-size:0.85rem;color:#cc8800;letter-spacing:3px;line-height:1;text-align:center;min-width:${w};text-shadow:0 0 6px #cc8800;font-family:"Courier New",monospace;`;
+    charRow.appendChild(ce); codeRow.appendChild(me);
+  });
+  el.appendChild(charRow); el.appendChild(codeRow);
+}
+
+function clearHintHighlight(){ document.querySelectorAll('.key.hint-highlight').forEach(k=>k.classList.remove('hint-highlight')); }
+function highlightKey(ch){ if(!HIGHLIGHT_SETS.has(currentSet)) return; document.querySelectorAll(`.key[data-char="${CSS.escape(ch)}"]`).forEach(k=>k.classList.add('hint-highlight')); }
+function showHintTip(){ $('hover-tip').textContent=currentTarget+'  '+(MORSE[currentTarget]||getMorse()); $('hover-tip').style.opacity='1'; clearHintHighlight(); if(!isSentenceMode&&!isWordMode) highlightKey(currentTarget); }
+function hideHintTip(){ $('hover-tip').style.opacity='0'; clearHintHighlight(); }
+
+function showLearn(){ $('learn-display').style.display='flex'; $('quiz-group').style.display='none'; hideHintTip(); }
+function showQuiz(){ $('learn-display').style.display='none'; $('quiz-group').style.display='flex'; }
+function setBigChar(ch,cls){ const el=$('big-char'); el.textContent=ch; el.className='big-char '+cls; }
+function setSubText(txt,html){ const el=$('sub-text'); if(html) el.innerHTML=html; else el.textContent=txt; }
+
+function nextItem(){
+  typedSoFar=''; showHint=false; hideHintTip();
+  $('main').className=''; $('feedback').textContent=''; $('feedback').className=''; clearHintHighlight();
+  if(currentSet==='callsigns')     currentTarget=randCall();
+  else if(currentSet==='common')   currentTarget=WORDS[Math.floor(Math.random()*WORDS.length)];
+  else if(currentSet==='sentence') currentTarget=SENTENCES[Math.floor(Math.random()*SENTENCES.length)];
+  else { const c=getChars(); currentTarget=c[Math.floor(Math.random()*c.length)]; }
+  setBigChar('?','prompt'); setSubText(PROMPTS[currentSet]||'');
+  updateStats(); playCode(getMorse());
+}
+
+function replayItem(){ if(isExploreMode||!started||playing) return; playCode(getMorse()); }
+function handleHint(){ if(isExploreMode) return; showHint=!showHint; if(showHint) showHintTip(); else hideHintTip(); }
+function flashKey(ch){ document.querySelectorAll(`.key[data-char="${CSS.escape(ch)}"]`).forEach(k=>{ k.classList.add('pressed'); setTimeout(()=>k.classList.remove('pressed'),150); }); }
+
+function handleKey(key){
+  if(isExploreMode){
+    const upper=key.toUpperCase();
+    const ch=key===' '?' ':(MORSE[upper]?upper:MORSE[key]?key:null);
+    if(!ch) return;
+    if(ch!==' ') flashKey(ch);
+    clearTimeout(exploreTimer);
+    const last=exploreBuffer[exploreBuffer.length-1];
+    if(ch===' '&&last===' ') return;
+    if(exploreBuffer.length>=40) exploreBuffer.shift();
+    exploreBuffer.push(ch);
+    if(ch===' ') exploreScheduleSpace(); else exploreScheduleChar(ch);
+    renderExplore();
+    exploreTimer=setTimeout(()=>{ if(exploreBuffer[exploreBuffer.length-1]!==' '){ exploreBuffer.push(' '); exploreScheduleSpace(); renderExplore(); } explorePlayTime=0; },1200);
+    return;
+  }
+  if(key===' '){ if(!isSentenceMode) return; }
+  else { if(playing&&!(isWordMode||isSentenceMode)) return; }
+  const inputChar=key===' '?' ':(MORSE[key.toUpperCase()]?key.toUpperCase():MORSE[key]?key:null);
+  if(!inputChar) return;
+  if(inputChar!==' ') flashKey(inputChar);
+
+  if(isWordMode||isSentenceMode){
+    typedSoFar+=inputChar;
+    const expected=currentTarget[typedSoFar.length-1];
+    setBigChar(typedSoFar,'typed');
+    if(inputChar!==expected){
+      streak=0; totalAttempts++;
+      setBigChar('✗','wrong-ans');
+      setSubText('',`<span style="background:#1a0000;border:1px solid #aa2200;border-radius:6px;padding:4px 14px;color:#ff3a1a;letter-spacing:3px;font-size:1rem;text-shadow:0 0 8px #ff3a1a;">${currentTarget}</span>`);
+      $('main').className='wrong';
+      const saved=currentTarget; typedSoFar=''; playing=true;
+      setTimeout(()=>playCode(isSentenceMode?sentenceMorse(saved):wordMorse(saved),()=>{ setBigChar('?','prompt'); setSubText(PROMPTS[currentSet]||''); $('main').className=''; }),700);
+    } else {
+      setBigChar(typedSoFar,'correct-ans');
+      if(typedSoFar.length===currentTarget.length){
+        totalAttempts++;totalCorrect++;streak++;
+        setBigChar('✓','correct-ans');
+        setSubText('',`<span style="background:#001a00;border:1px solid #00aa44;border-radius:6px;padding:4px 14px;color:#00ff66;letter-spacing:3px;font-size:1rem;text-shadow:0 0 8px #00ff66;">${currentTarget}</span>`);
+        $('main').className='correct'; checkUnlock(); setTimeout(nextItem,800);
+      }
+    }
+  } else {
+    totalAttempts++;
+    if(inputChar===currentTarget){
+      totalCorrect++;streak++;
+      setBigChar('✓','correct-ans');
+      setSubText('',`<span style="background:#1a0f00;border:1px solid #8a5000;border-radius:6px;padding:4px 14px;color:#c8e000;letter-spacing:3px;font-size:1rem;text-shadow:0 0 8px #c8e000;">${currentTarget}&nbsp;&nbsp;${MORSE[currentTarget]||''}</span>`);
+      $('main').className='correct'; checkUnlock(); setTimeout(nextItem,800);
+    } else {
+      streak=0;
+      setBigChar('✗','wrong-ans');
+      setSubText('',`<span style="background:#1f0a00;border:1px solid #8a2000;border-radius:6px;padding:4px 14px;color:#e84000;letter-spacing:3px;font-size:1rem;text-shadow:0 0 8px #e84000;">${currentTarget}&nbsp;&nbsp;${MORSE[currentTarget]||''}</span>`);
+      $('main').className='wrong';
+      setTimeout(()=>playCode(MORSE[currentTarget],()=>{ setBigChar('?','prompt'); setSubText(PROMPTS[currentSet]||''); $('main').className=''; }),600);
+    }
+  }
+  updateStats();
+}
+
+function checkUnlock(){ if(isWordMode||isSentenceMode||currentSet==='symbols'||streak%10!==0||streak===0) return; const max=currentSet==='letters'?KOCH.length:currentSet==='numbers'?ALL_NUMS.length:KOCH.length+ALL_NUMS.length; if((unlocked[currentSet]||0)<max){ unlocked[currentSet]++; const c=getChars(),n=c[c.length-1]; showToast('Unlocked: '+n+'  '+MORSE[n]); } }
+function showToast(msg){ const el=$('unlock-msg'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2500); }
+function updateStats(){
+  $('s-streak').textContent=streak; $('s-correct').textContent=totalCorrect;
+  $('s-acc').textContent=totalAttempts?Math.round(totalCorrect/totalAttempts*100)+'%':'—';
+  const c=getChars(); $('s-chars').textContent=c?c.length:isSentenceMode?SENTENCES.length:WORDS.length;
+  saveProgress();
+}
+function setWpm(v){
+  wpm=v;
+  document.querySelectorAll('.wpm-btn').forEach(b=>b.classList.toggle('selected',parseInt(b.textContent)===v));
+  document.querySelectorAll('.qrs-btn').forEach(b=>{ const bv=parseInt(b.textContent)||0; b.classList.toggle('disabled',bv>0&&bv>=wpm); if(bv>0&&bv>=wpm&&fwpm===bv) fwpm=0; });
+  saveProgress();
+}
+function setFarnsworth(v){ fwpm=v; document.querySelectorAll('.qrs-btn').forEach(b=>b.classList.toggle('selected',(parseInt(b.textContent)||0)===v)); saveProgress(); }
+function resetProgress(){
+  if(!confirm('Reset all progress?')) return;
+  localStorage.removeItem(SAVE_KEY);
+  wpm=20; fwpm=12; totalAttempts=0; totalCorrect=0; streak=0; unlocked={letters:4,numbers:4,mixed:6};
+  setWpm(20); setFarnsworth(12); updateStats(); switchSet('explore');
+  showToast('Progress reset');
+}
+function switchSet(s){
+  stopAudio();
+  currentSet=s; isWordMode=s==='common'||s==='callsigns'; isSentenceMode=s==='sentence'; isExploreMode=s==='explore';
+  document.querySelectorAll('.set-btn').forEach(b=>b.classList.toggle('active',b.dataset.set===s));
+  exploreBuffer=[]; clearTimeout(exploreTimer); explorePlayTime=0; typedSoFar='';
+  $('main').className=''; showHint=false; hideHintTip(); clearHintHighlight(); updateStats();
+  if(isExploreMode){ showLearn(); renderExplore(); } else { showQuiz(); started=true; nextItem(); }
+}
+function buildRef(){ const fill=(id,chars)=>{ const el=$(id); el.innerHTML=''; chars.forEach(c=>{ if(!MORSE[c]) return; const d=document.createElement('div'); d.className='ref-item'; d.innerHTML=`<span class="ref-char">${c}</span><span class="ref-code">${MORSE[c]}</span>`; el.appendChild(d); }); }; fill('ref-letters','ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')); fill('ref-numbers',ALL_NUMS); fill('ref-symbols',ALL_SYMS); }
+function toggleRef(){ const ov=$('ref-overlay'); ov.classList.toggle('open'); if(ov.classList.contains('open')) buildRef(); }
+
+$('ref-close').addEventListener('click',toggleRef);
+$('ref-overlay').addEventListener('click',e=>{ if(e.target===$('ref-overlay')) toggleRef(); });
+document.querySelectorAll('.key[data-char]').forEach(k=>{
+  k.addEventListener('mouseenter',()=>{ if(!isExploreMode) return; const ch=k.dataset.char,code=MORSE[ch]||MORSE[ch.toUpperCase()]||''; if(!code) return; $('hover-tip').textContent=ch+'  '+code; $('hover-tip').style.opacity='1'; });
+  k.addEventListener('mouseleave',()=>{ $('hover-tip').style.opacity='0'; });
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ if($('ref-overlay').classList.contains('open')) toggleRef(); return; }
+  if(e.key===' '){ e.preventDefault(); if(isExploreMode||isSentenceMode) handleKey(' '); else replayItem(); return; }
+  if(e.key==='Tab'){ e.preventDefault(); switchSet(SETS[(SETS.indexOf(currentSet)+1)%SETS.length]); return; }
+  if(e.key==='`'||e.key==='~'){ e.preventDefault(); handleHint(); return; }
+  const valid='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,?/=+-()@!:\'';
+  if(valid.includes(e.key)) handleKey(e.key);
+});
+
+window.handleKey=handleKey; window.switchSet=switchSet; window.replayItem=replayItem;
+window.handleHint=handleHint; window.toggleRef=toggleRef;
+window.setWpm=setWpm; window.setFarnsworth=setFarnsworth; window.resetProgress=resetProgress;
+
+// Init
+setWpm(wpm); setFarnsworth(fwpm);
+document.querySelectorAll('.set-btn').forEach(b=>b.classList.toggle('active',b.dataset.set===currentSet));
+isWordMode=currentSet==='common'||currentSet==='callsigns';
+isSentenceMode=currentSet==='sentence'; isExploreMode=currentSet==='explore';
+if(isExploreMode){ showLearn(); renderExplore(); } else { showQuiz(); nextItem(); }
+updateStats();
+</script>
+</body>
+</html>
